@@ -650,7 +650,7 @@ def _node_slots(
                 "stage": stage,
                 "selected": "default",
                 "default": node_id,
-                "nullable": stage not in {"inference", "scoring"},
+                "nullable": stage != "scoring",
                 "metric": selected_route.get("metric") if stage == "scoring" else None,
                 "choices": stage_choices or [node_id],
             }
@@ -666,7 +666,7 @@ def _node_slots(
                     "stage": stage,
                     "selected": "default",
                     "default": node_id,
-                    "nullable": stage not in {"inference", "scoring"},
+                    "nullable": stage != "scoring",
                     "metric": selected_route.get("metric") if stage == "scoring" else None,
                     "choices": _stage_choices(stage, route_choices) or [node_id],
                 }
