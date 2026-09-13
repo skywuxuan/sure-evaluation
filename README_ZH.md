@@ -43,15 +43,19 @@ normalization、转录模型、格式转换或评分脚本。每一次评估都�
 
 ## Pipeline 如何工作
 
-SURE-EVALUATION 将所有影响分数的环节视作节点：
+SURE-EVALUATION 使用四类有序评估阶段；每条 route 只包含实际需要的阶段：
 
 ```text
-模型输出
-    -> 校验 / 转换
-    -> 转录 / 推理 / 归一化
-    -> 评分
+音频或模型输出
+    -> frontend       （可选的音频前端处理）
+    -> transcription  （可选的音频到文本转录）
+    -> normalization  （可选的文本规范化）
+    -> scoring        （计算评估指标）
     -> report.json + pipeline_description.json
 ```
+
+输入解析和格式检查由首个消费该输入的节点负责，并作为节点内部步骤记录，
+不再单独构成 pipeline 阶段。
 
 `pipeline_id` 使用 `任务.语种.metric.节点版本...` 表示一条精确计算流程，
 例如：
@@ -67,8 +71,8 @@ asr.en.wer.whisper_norm_english_v1.wenet_wer_v1
 ## 评估链路图谱
 
 已提交的 catalog 可以绘制成一张全景图：每条原子 pipeline 是一条彩色链路，
-从任务出发依次流经 frontend、transcription、inference、validation、normalization、
-scoring 节点，最终落为一份 report。
+从任务出发依次流经实际需要的 frontend、transcription、normalization、scoring
+节点，最终落为一份 report。
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/atlas/pipeline_atlas_dark.svg">
@@ -193,7 +197,7 @@ node-local 虚拟环境只保留在本地，不会进入安装包或 Git。
 | SLU | Accuracy | [SLU](docs/tasks/slu.md) |
 | KWS | Accuracy、macro recall、precision、recall、F1、FRR、FAR | [KWS](docs/tasks/kws.md) |
 | VAD | F1、false alarm、miss、NIST DCF、ROC AUC | [VAD](docs/tasks/vad.md) |
-| LID | 标签准确率；可选 FireRedLID 音频参考 backend | [LID](docs/tasks/lid.md) |
+| LID | 语种标签准确率 | [LID](docs/tasks/lid.md) |
 
 每份任务指南都会说明输入 contract、已注册 metric、精确 pipeline ID、节点和
 运行示例。自动生成的 [pipeline catalog](docs/pipeline_catalog.md) 包含已声明

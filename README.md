@@ -46,15 +46,20 @@ forcing every user to install every model and tool.
 
 ## How A Pipeline Works
 
-SURE-EVALUATION treats every score-affecting step as a node:
+SURE-EVALUATION uses four ordered evaluation stages. Routes include only the
+stages they need:
 
 ```text
-model output
-    -> validation / conversion
-    -> transcription / inference / normalization
-    -> scoring
+audio or model output
+    -> frontend        (optional audio preparation)
+    -> transcription   (optional audio-to-text)
+    -> normalization   (optional text canonicalization)
+    -> scoring          (metric computation)
     -> report.json + pipeline_description.json
 ```
+
+Input parsing and format checks belong to the first node that consumes the
+input. They are documented internal steps, not separate pipeline stages.
 
 A `pipeline_id` names an exact computation as
 `task.language.metric.node_version...`. For example:
@@ -71,8 +76,8 @@ are bundles whose identities contain their atomic member pipelines.
 ## Pipeline Atlas
 
 The committed catalog can be drawn as one map: every atomic pipeline is a
-colored ribbon that flows from its task through frontend, transcription,
-inference, validation, normalization, and scoring nodes into a report.
+colored ribbon that flows from its task through the applicable frontend,
+transcription, normalization, and scoring nodes into a report.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/atlas/pipeline_atlas_dark.svg">
@@ -203,7 +208,7 @@ packages and Git.
 | SLU | Accuracy | [SLU](docs/tasks/slu.md) |
 | KWS | Accuracy, macro recall, precision, recall, F1, FRR, FAR | [KWS](docs/tasks/kws.md) |
 | VAD | F1, false alarm, miss, NIST DCF, ROC AUC | [VAD](docs/tasks/vad.md) |
-| LID | Label accuracy; optional FireRedLID audio reference backend | [LID](docs/tasks/lid.md) |
+| LID | Spoken-language label accuracy | [LID](docs/tasks/lid.md) |
 
 Each task guide defines its input contract, registered metrics, exact pipeline
 IDs, nodes, and run examples. The generated
