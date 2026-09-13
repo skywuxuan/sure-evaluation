@@ -1,4 +1,4 @@
-"""VAD task routes built from validation, normalization, and scoring nodes."""
+"""VAD task routes built from normalization and scoring nodes."""
 
 from __future__ import annotations
 
@@ -6,16 +6,15 @@ from pathlib import Path
 from typing import Any
 
 from sure_eval.evaluation.core.types import EvaluationFiles, EvaluationReport, MetricInputContract
-from sure_eval.evaluation.nodes.normalization.vad_timebase import normalize_vad_timebase
-from sure_eval.evaluation.nodes.scoring.vad_auc_roc import score_vad_auc_roc
-from sure_eval.evaluation.nodes.scoring.vad_detection_duration import (
-    score_vad_detection_duration,
-)
-from sure_eval.evaluation.nodes.validation.vad_contract import (
+from sure_eval.evaluation.nodes.normalization.vad_timebase import (
     AUC_METRICS,
     DETECTION_METRICS,
     REQUIRED_FIELDS_BY_METRIC,
-    validate_vad_contract,
+    normalize_vad_timebase,
+)
+from sure_eval.evaluation.nodes.scoring.vad_auc_roc import score_vad_auc_roc
+from sure_eval.evaluation.nodes.scoring.vad_detection_duration import (
+    score_vad_detection_duration,
 )
 from sure_eval.evaluation.pipeline_identity import (
     build_atomic_pipeline_id,
@@ -62,13 +61,10 @@ def evaluate_vad_files(
     )
     _VAD_JSONL_CONTRACT.validate(input_files)
 
-    validated_bundle, validation_result = validate_vad_contract(
+    normalized_bundle, normalization_result = normalize_vad_timebase(
         reference_jsonl,
         sample_output,
         required_prediction_fields=REQUIRED_FIELDS_BY_METRIC[normalized_metric],
-    )
-    normalized_bundle, normalization_result = normalize_vad_timebase(
-        validated_bundle,
         frame_shift_sec=frame_shift_sec,
         profile=profile,
         collar_sec=collar_sec,
@@ -100,7 +96,7 @@ def evaluate_vad_files(
         metric=normalized_metric,
         score=_report_score(selected_score),
         pipeline_id=pipeline_id,
-        pipeline_trace=(validation_result, normalization_result, scoring_result),
+        pipeline_trace=(normalization_result, scoring_result),
         input_contract=_VAD_JSONL_CONTRACT,
         input_files=input_files,
         computation_node_ids=component_trace_ids(components),
@@ -113,7 +109,7 @@ def evaluate_vad_files(
             },
             "rows": rows,
             "skipped_metrics": scoring_result.details.get("skipped", []),
-            "input_summary": validated_bundle.input_summary,
+            "input_summary": normalized_bundle.source_input_summary,
             "timebase": normalized_bundle.input_summary,
             "timebase_config": {
                 "frame_shift_sec": frame_shift_sec,
@@ -146,7 +142,6 @@ def pipeline_id_for_metric(metric: str, *, profile: str = "strict") -> str:
 
 def _identity_components(*, scoring_node_id: str, profile: str):
     return (
-        node_component("validation/vad_contract"),
         node_component("normalization/vad_timebase", profile=profile),
         node_component(scoring_node_id),
     )

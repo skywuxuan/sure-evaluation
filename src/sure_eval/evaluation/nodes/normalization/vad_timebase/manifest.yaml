@@ -1,8 +1,8 @@
 id: normalization/vad_timebase
-version: v1
+version: v2
 stage: normalization
 language_sensitive: false
-input_schema: vad_validated_bundle
+input_schema: vad_jsonl_files
 output_schema: vad_normalized_bundle
 implementation: sure_eval.evaluation.nodes.normalization.vad_timebase.node
 metrics:
@@ -12,12 +12,17 @@ metrics:
   - dcf_nist
   - auc_roc
 internal_stages:
+  - jsonl_parse
+  - key_alignment
+  - field_contract
+  - metric_availability
   - strict_profile_selection
   - duration_clip
   - invalid_interval_drop
   - overlap_merge
   - scored_region_summary
 notes:
-  - The first VAD task version implements only the strict seconds-timebase profile.
-  - Validation rejects invalid, out-of-range, and overlapping intervals before normalization.
+  - The VAD task implements only the strict seconds-timebase profile.
+  - Input parsing, key alignment, and contract checks are part of this normalization node.
+  - Invalid, out-of-range, and overlapping intervals are rejected before timebase conversion.
   - Route settings such as frame_shift_sec are recorded in report details and pipeline descriptions.

@@ -1,8 +1,11 @@
 # normalization/vad_timebase
 
-Normalizes validated VAD rows on the reference seconds timebase.
+Loads VAD reference and prediction JSONL, enforces their input contract, and
+normalizes rows on the reference seconds timebase.
 
-This first task version supports only `profile: strict` with zero collar and
-zero boundary exclusion. The validation contract already rejects invalid,
-out-of-range, and overlapping intervals. This node keeps a stable order and
-records scored-region summaries on the reference `duration` timebase.
+This task version supports only `profile: strict` with zero collar and zero
+boundary exclusion. JSONL parsing, key alignment, required-field checks, and
+interval checks are internal parts of this node rather than a separate pipeline
+stage. Invalid, out-of-range, and overlapping intervals are rejected before
+timebase conversion. The node keeps a stable order and records scored-region
+summaries on the reference `duration` timebase.

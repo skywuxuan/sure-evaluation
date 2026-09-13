@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from sure_eval.evaluation.nodes.inference.firered_lid import (
-    LanguageRunner,
-    NodeLocalFireRedLIDRunner,
-)
 from sure_eval.evaluation.scripts.contracts import (
     call_route_executor,
     contract_from_manifest,
@@ -18,7 +12,6 @@ from sure_eval.evaluation.scripts.contracts import (
     load_task_routes,
     write_route_run_outputs,
 )
-from sure_eval.evaluation.tasks.lid.types import LIDSample
 
 
 def describe_pipeline(*, metric: str = "accuracy", pipeline_id: str | None = None):
@@ -43,34 +36,19 @@ def describe_pipeline(*, metric: str = "accuracy", pipeline_id: str | None = Non
 
 
 def run(
-    ref_file: str | None = None,
-    hyp_file: str | None = None,
+    ref_file: str,
+    hyp_file: str,
     *,
     output_dir: str,
     pipeline_id: str | None = None,
-    samples: list[LIDSample] | None = None,
-    runner: LanguageRunner | None = None,
-    input_manifest: str = "in_memory",
-    device: str = "cuda",
-    model_dir: str | Path | None = None,
 ):
     if not output_dir:
         raise ValueError("output_dir is required")
     _, _, _, route = _select_route(metric="accuracy", pipeline_id=pipeline_id)
     description = describe_pipeline(pipeline_id=route["pipeline_id"])
-    if route["input_contract"] == "task/lid_samples_jsonl":
-        if not samples:
-            raise ValueError("FireRedLID reference backend requires samples_jsonl")
-        report = call_route_executor(
-            route,
-            samples=samples,
-            runner=runner or NodeLocalFireRedLIDRunner(device=device, model_dir=model_dir),
-            input_manifest=input_manifest,
-        )
-    else:
-        if not ref_file or not hyp_file:
-            raise ValueError("LID label evaluation requires ref_file and hyp_file")
-        report = call_route_executor(route, ref_file=ref_file, hyp_file=hyp_file)
+    if not ref_file or not hyp_file:
+        raise ValueError("LID label evaluation requires ref_file and hyp_file")
+    report = call_route_executor(route, ref_file=ref_file, hyp_file=hyp_file)
     return write_route_run_outputs(report=report, description=description, output_dir=output_dir)
 
 

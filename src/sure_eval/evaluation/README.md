@@ -334,8 +334,7 @@ multiple nodes into one pipeline. For example:
 - TSE: SI-SDR(+i) signal quality, plus optional speaker similarity, MOS, and
   ASR-based semantic WER/CER scoring;
 - LID: external LID labels -> canonical language-label normalization ->
-  utterance-level accuracy scoring, with FireRedLID as an optional audio
-  reference backend;
+  utterance-level accuracy scoring;
 - KWS/classification/SLU: task-specific loaders or normalization followed by
   scoring nodes.
 
@@ -355,16 +354,19 @@ to STM and calls MeetEval for cpWER and DER. Route hyperparameters such as
 
 ### `nodes/`
 
-Nodes are reusable pipeline stages. Current stages include:
+Nodes are reusable pipeline stages. The stage vocabulary is deliberately
+limited to:
 
-- `inference/`: task-specific audio inference nodes such as FireRedLID;
-- `normalization/`: text or prompt normalization;
+- `frontend/`: audio loading, resampling, and other metric-required front-end preparation;
 - `transcription/`: audio-to-text nodes used by semantic audio metrics;
-- `scoring/`: metric backends and scoring wrappers.
+- `normalization/`: text, label, or prompt canonicalization;
+- `scoring/`: metric computation backends and wrappers.
 
 A node should do one thing well. If an external script combines several internal
 steps, keep the original behavior intact and document those internal stages in
-the node manifest and pipeline trace.
+the node manifest and pipeline trace. Parsing, alignment, and format checks are
+internal responsibilities of the node that consumes the input, not independent
+pipeline stages.
 
 ### `core/`
 

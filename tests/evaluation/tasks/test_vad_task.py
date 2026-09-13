@@ -52,10 +52,9 @@ def test_vad_route_describe_contains_expected_nodes() -> None:
     assert desc.language == "n/a"
     assert desc.metric == "f1"
     assert desc.pipeline_id == (
-        "vad.any.f1.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1"
+        "vad.any.f1.vad_timebase_strict_v2.vad_detection_duration_v1"
     )
     assert desc.node_ids == (
-        "validation/vad_contract",
         "normalization/vad_timebase",
         "scoring/vad_detection_duration",
     )
@@ -88,7 +87,7 @@ def test_vad_run_task_report_shape(tmp_path: Path) -> None:
     assert report.metric == "f1"
     assert report.score == 1.0
     assert report.pipeline_id == (
-        "vad.any.f1.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1"
+        "vad.any.f1.vad_timebase_strict_v2.vad_detection_duration_v1"
     )
     assert (output_dir / "report.json").exists()
     assert (output_dir / "pipeline_description.json").exists()
@@ -99,8 +98,9 @@ def test_vad_run_task_report_shape(tmp_path: Path) -> None:
     )
     assert report_payload["details"]["results"]["f1"]["score"] == 1.0
     assert report_payload["details"]["auxiliary"]["num_detection_samples"] == 1
+    assert "profile" not in report_payload["details"]["input_summary"]
+    assert report_payload["details"]["timebase"]["profile"] == "strict"
     assert [node["node_id"] for node in report_payload["pipeline_trace"]] == [
-        "validation/vad_contract",
         "normalization/vad_timebase",
         "scoring/vad_detection_duration",
     ]
@@ -116,7 +116,7 @@ def test_vad_cli_describe_run_preserves_pipeline_id(tmp_path: Path) -> None:
     reference_jsonl, sample_output = _fixture_files(tmp_path)
     pipeline_path = tmp_path / "vad_pipeline.json"
     output_dir = tmp_path / "vad_cli_out"
-    pipeline_id = "vad.any.f1.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1"
+    pipeline_id = "vad.any.f1.vad_timebase_strict_v2.vad_detection_duration_v1"
     runner = CliRunner()
 
     describe_result = runner.invoke(
@@ -164,7 +164,7 @@ def test_vad_auc_exact_pipeline_id_preserved(tmp_path: Path) -> None:
 
     reference_jsonl, sample_output = _fixture_files(tmp_path)
     output_dir = tmp_path / "vad_auc_out"
-    pipeline_id = "vad.any.auc_roc.vad_contract_v1.vad_timebase_strict_v1.vad_auc_roc_v1"
+    pipeline_id = "vad.any.auc_roc.vad_timebase_strict_v2.vad_auc_roc_v1"
 
     desc = describe_pipeline("vad", pipeline_id=pipeline_id)
     report = run_task(
@@ -191,9 +191,9 @@ def test_pipeline_catalog_contains_vad_routes() -> None:
     }
 
     assert pipeline_ids == {
-        "vad.any.f1.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1",
-        "vad.any.p_fa.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1",
-        "vad.any.p_miss.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1",
-        "vad.any.dcf_nist.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1",
-        "vad.any.auc_roc.vad_contract_v1.vad_timebase_strict_v1.vad_auc_roc_v1",
+        "vad.any.f1.vad_timebase_strict_v2.vad_detection_duration_v1",
+        "vad.any.p_fa.vad_timebase_strict_v2.vad_detection_duration_v1",
+        "vad.any.p_miss.vad_timebase_strict_v2.vad_detection_duration_v1",
+        "vad.any.dcf_nist.vad_timebase_strict_v2.vad_detection_duration_v1",
+        "vad.any.auc_roc.vad_timebase_strict_v2.vad_auc_roc_v1",
     }

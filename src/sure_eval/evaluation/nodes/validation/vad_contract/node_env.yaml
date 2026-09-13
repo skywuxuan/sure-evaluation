@@ -1,9 +1,0 @@
-id: validation/vad_contract
-group: vad-base
-runtime:
-  type: in_process
-  optional: false
-  gpu: false
-verify:
-  imports: []
-  files: []

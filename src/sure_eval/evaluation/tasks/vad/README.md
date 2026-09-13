@@ -35,7 +35,11 @@ Primary metrics:
 
 Default route:
 
-`vad.any.f1.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1`
+`vad.any.f1.vad_timebase_strict_v2.vad_detection_duration_v1`
+
+Input parsing, key alignment, field checks, and interval checks are internal
+steps of `normalization/vad_timebase`; they do not form a separate evaluation
+stage.
 
 The evaluator does not run a VAD model, read audio, or resample audio. It only
 scores already generated prediction JSONL on the reference seconds timebase.
