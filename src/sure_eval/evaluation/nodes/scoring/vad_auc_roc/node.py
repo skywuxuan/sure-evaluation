@@ -5,8 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from sure_eval.evaluation.core.types import PipelineNodeResult
-from sure_eval.evaluation.nodes.normalization.vad_timebase import VADNormalizedBundle
-from sure_eval.evaluation.nodes.validation.vad_contract import FrameScore, Segment
+from sure_eval.evaluation.nodes.normalization.vad_timebase import (
+    FrameScore,
+    Segment,
+    VADNormalizedBundle,
+)
 
 NODE_ID = "scoring/vad_auc_roc"
 NODE_VERSION = "v1"

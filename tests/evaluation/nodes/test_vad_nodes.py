@@ -49,24 +49,25 @@ def _pred_row(
 
 def _normalize_from_files(reference_jsonl: Path, sample_output: Path):
     from sure_eval.evaluation.nodes.normalization.vad_timebase import normalize_vad_timebase
-    from sure_eval.evaluation.nodes.validation.vad_contract import validate_vad_contract
 
-    validated, _ = validate_vad_contract(reference_jsonl, sample_output)
-    normalized, _ = normalize_vad_timebase(validated)
+    normalized, _ = normalize_vad_timebase(reference_jsonl, sample_output)
     return normalized
 
 
-def test_vad_contract_accepts_minimal_reference_and_prediction(tmp_path: Path) -> None:
-    from sure_eval.evaluation.nodes.validation.vad_contract import validate_vad_contract
+def test_vad_normalization_accepts_and_checks_input_files(tmp_path: Path) -> None:
+    from sure_eval.evaluation.nodes.normalization.vad_timebase import normalize_vad_timebase
 
     reference_jsonl = tmp_path / "ref.jsonl"
     sample_output = tmp_path / "pred.jsonl"
     _write_jsonl(reference_jsonl, [_ref_row()])
     _write_jsonl(sample_output, [_pred_row()])
 
-    bundle, trace = validate_vad_contract(reference_jsonl, sample_output)
+    bundle, trace = normalize_vad_timebase(reference_jsonl, sample_output)
 
-    assert trace.node_id == "validation/vad_contract"
+    assert trace.node_id == "normalization/vad_timebase"
+    assert trace.stage == "normalization"
+    assert trace.version == "v2"
+    assert "field_contract" in trace.internal_stages
     assert bundle.input_summary["num_rows"] == 1
     row = bundle.rows[0]
     assert row.key == "utt1"
@@ -74,8 +75,8 @@ def test_vad_contract_accepts_minimal_reference_and_prediction(tmp_path: Path) -
     assert row.skipped_metrics == {}
 
 
-def test_vad_contract_rejects_score_aliases(tmp_path: Path) -> None:
-    from sure_eval.evaluation.nodes.validation.vad_contract import validate_vad_contract
+def test_vad_normalization_rejects_score_aliases(tmp_path: Path) -> None:
+    from sure_eval.evaluation.nodes.normalization.vad_timebase import normalize_vad_timebase
 
     reference_jsonl = tmp_path / "ref.jsonl"
     sample_output = tmp_path / "pred.jsonl"
@@ -91,11 +92,11 @@ def test_vad_contract_rejects_score_aliases(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ValueError, match="unsupported score alias"):
-        validate_vad_contract(reference_jsonl, sample_output)
+        normalize_vad_timebase(reference_jsonl, sample_output)
 
 
-def test_vad_contract_rejects_audio_duration_metadata(tmp_path: Path) -> None:
-    from sure_eval.evaluation.nodes.validation.vad_contract import validate_vad_contract
+def test_vad_normalization_rejects_audio_duration_metadata(tmp_path: Path) -> None:
+    from sure_eval.evaluation.nodes.normalization.vad_timebase import normalize_vad_timebase
 
     reference_jsonl = tmp_path / "ref.jsonl"
     sample_output = tmp_path / "pred.jsonl"
@@ -103,11 +104,11 @@ def test_vad_contract_rejects_audio_duration_metadata(tmp_path: Path) -> None:
     _write_jsonl(sample_output, [{**_pred_row(), "audio_duration": 1.0}])
 
     with pytest.raises(ValueError, match="audio_duration"):
-        validate_vad_contract(reference_jsonl, sample_output)
+        normalize_vad_timebase(reference_jsonl, sample_output)
 
 
-def test_vad_contract_rejects_invalid_reference_interval(tmp_path: Path) -> None:
-    from sure_eval.evaluation.nodes.validation.vad_contract import validate_vad_contract
+def test_vad_normalization_rejects_invalid_reference_interval(tmp_path: Path) -> None:
+    from sure_eval.evaluation.nodes.normalization.vad_timebase import normalize_vad_timebase
 
     reference_jsonl = tmp_path / "ref.jsonl"
     sample_output = tmp_path / "pred.jsonl"
@@ -115,11 +116,11 @@ def test_vad_contract_rejects_invalid_reference_interval(tmp_path: Path) -> None
     _write_jsonl(sample_output, [_pred_row()])
 
     with pytest.raises(ValueError, match="end must be greater than start"):
-        validate_vad_contract(reference_jsonl, sample_output)
+        normalize_vad_timebase(reference_jsonl, sample_output)
 
 
-def test_vad_contract_rejects_out_of_range_prediction_interval(tmp_path: Path) -> None:
-    from sure_eval.evaluation.nodes.validation.vad_contract import validate_vad_contract
+def test_vad_normalization_rejects_out_of_range_prediction_interval(tmp_path: Path) -> None:
+    from sure_eval.evaluation.nodes.normalization.vad_timebase import normalize_vad_timebase
 
     reference_jsonl = tmp_path / "ref.jsonl"
     sample_output = tmp_path / "pred.jsonl"
@@ -127,11 +128,11 @@ def test_vad_contract_rejects_out_of_range_prediction_interval(tmp_path: Path) -
     _write_jsonl(sample_output, [_pred_row(speech_segments=[{"start": 0.2, "end": 1.2}])])
 
     with pytest.raises(ValueError, match=r"within \[0, duration\]"):
-        validate_vad_contract(reference_jsonl, sample_output)
+        normalize_vad_timebase(reference_jsonl, sample_output)
 
 
-def test_vad_contract_rejects_overlapping_speech_segments(tmp_path: Path) -> None:
-    from sure_eval.evaluation.nodes.validation.vad_contract import validate_vad_contract
+def test_vad_normalization_rejects_overlapping_speech_segments(tmp_path: Path) -> None:
+    from sure_eval.evaluation.nodes.normalization.vad_timebase import normalize_vad_timebase
 
     reference_jsonl = tmp_path / "ref.jsonl"
     sample_output = tmp_path / "pred.jsonl"
@@ -142,7 +143,7 @@ def test_vad_contract_rejects_overlapping_speech_segments(tmp_path: Path) -> Non
     _write_jsonl(sample_output, [_pred_row()])
 
     with pytest.raises(ValueError, match="overlapping intervals"):
-        validate_vad_contract(reference_jsonl, sample_output)
+        normalize_vad_timebase(reference_jsonl, sample_output)
 
 
 def test_vad_detection_exact_match_f1_1(tmp_path: Path) -> None:

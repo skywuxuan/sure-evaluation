@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from sure_eval.evaluation.core.types import PipelineNodeResult
-from sure_eval.evaluation.nodes.validation.vad_contract import (
+from sure_eval.evaluation.nodes.normalization.vad_timebase._contract import (
     FrameScore,
     Segment,
-    VADValidatedBundle,
+    load_vad_inputs,
 )
 
 NODE_ID = "normalization/vad_timebase"
-NODE_VERSION = "v1"
+NODE_VERSION = "v2"
 INTERNAL_STAGES = (
+    "jsonl_parse",
+    "key_alignment",
+    "field_contract",
+    "metric_availability",
     "strict_profile_selection",
     "duration_clip",
     "invalid_interval_drop",
@@ -62,6 +67,7 @@ class VADNormalizedBundle:
 
     rows: list[VADNormalizedRow]
     input_summary: dict[str, Any]
+    source_input_summary: dict[str, Any]
     frame_shift_sec: float = 0.01
     profile: str = "strict"
     collar_sec: float = 0.0
@@ -79,20 +85,27 @@ class VADNormalizedBundle:
 
 
 def normalize_vad_timebase(
-    bundle: VADValidatedBundle,
+    reference_jsonl: str | Path,
+    sample_output: str | Path,
     *,
+    required_prediction_fields: tuple[str, ...] = (),
     frame_shift_sec: float = 0.01,
     profile: str = "strict",
     collar_sec: float = 0.0,
     boundary_exclusion_sec: float = 0.0,
 ) -> tuple[VADNormalizedBundle, PipelineNodeResult]:
-    """Clip, sort, and merge VAD intervals on the reference duration timebase."""
+    """Load, check, and normalize VAD rows on the reference seconds timebase."""
 
     _validate_config(
         frame_shift_sec=frame_shift_sec,
         profile=profile,
         collar_sec=collar_sec,
         boundary_exclusion_sec=boundary_exclusion_sec,
+    )
+    bundle = load_vad_inputs(
+        reference_jsonl,
+        sample_output,
+        required_prediction_fields=required_prediction_fields,
     )
     rows: list[VADNormalizedRow] = []
     dropped_reference_segments = 0
@@ -151,6 +164,7 @@ def normalize_vad_timebase(
     normalized = VADNormalizedBundle(
         rows=rows,
         input_summary=input_summary,
+        source_input_summary=dict(bundle.input_summary),
         frame_shift_sec=frame_shift_sec,
         profile=profile,
         collar_sec=collar_sec,

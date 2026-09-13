@@ -11,15 +11,15 @@ sure-eval metric routes vad --metric f1
 
 | Canonical metric | Pipeline ID | Nodes | Higher is better |
 |:-----------------|:------------|:------|:-----------------|
-| `f1` | `vad.any.f1.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1` | `validation/vad_contract` → `normalization/vad_timebase` → `scoring/vad_detection_duration` | yes |
-| `p_fa` | `vad.any.p_fa.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1` | `validation/vad_contract` → `normalization/vad_timebase` → `scoring/vad_detection_duration` | no |
-| `p_miss` | `vad.any.p_miss.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1` | `validation/vad_contract` → `normalization/vad_timebase` → `scoring/vad_detection_duration` | no |
-| `dcf_nist` | `vad.any.dcf_nist.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1` | `validation/vad_contract` → `normalization/vad_timebase` → `scoring/vad_detection_duration` | no |
-| `auc_roc` | `vad.any.auc_roc.vad_contract_v1.vad_timebase_strict_v1.vad_auc_roc_v1` | `validation/vad_contract` → `normalization/vad_timebase` → `scoring/vad_auc_roc` | yes |
+| `f1` | `vad.any.f1.vad_timebase_strict_v2.vad_detection_duration_v1` | `normalization/vad_timebase` → `scoring/vad_detection_duration` | yes |
+| `p_fa` | `vad.any.p_fa.vad_timebase_strict_v2.vad_detection_duration_v1` | `normalization/vad_timebase` → `scoring/vad_detection_duration` | no |
+| `p_miss` | `vad.any.p_miss.vad_timebase_strict_v2.vad_detection_duration_v1` | `normalization/vad_timebase` → `scoring/vad_detection_duration` | no |
+| `dcf_nist` | `vad.any.dcf_nist.vad_timebase_strict_v2.vad_detection_duration_v1` | `normalization/vad_timebase` → `scoring/vad_detection_duration` | no |
+| `auc_roc` | `vad.any.auc_roc.vad_timebase_strict_v2.vad_auc_roc_v1` | `normalization/vad_timebase` → `scoring/vad_auc_roc` | yes |
 
 Default route:
 
-`vad.any.f1.vad_contract_v1.vad_timebase_strict_v1.vad_detection_duration_v1`
+`vad.any.f1.vad_timebase_strict_v2.vad_detection_duration_v1`
 
 ## Input Contract
 
@@ -54,18 +54,16 @@ Strict contract rules:
 - Speech intervals and frame-score intervals must not overlap within a row.
 - Prediction score aliases such as `scores`, `probs`, and `speech_probabilities` are not accepted.
 - Prediction-side duration metadata such as `audio_duration` is not accepted.
-- Missing fields required by the selected route fail validation.
+- Missing fields required by the selected route fail before scoring.
 
 ## Scoring
 
-`validation/vad_contract` parses JSONL, rejects malformed fields, aligns keys,
-and records metric availability per row.
-
-`normalization/vad_timebase` applies the strict profile on the reference
-`duration` timebase. Because the contract rejects invalid or out-of-range
-intervals, normalization is only responsible for stable ordering and scored
-duration summaries. The first VAD route version uses zero collar and zero
-boundary exclusion.
+`normalization/vad_timebase` owns the complete preparation boundary for VAD
+scoring. It parses JSONL, aligns keys, enforces the documented field and
+interval contract, records metric availability per row, and then applies the
+strict profile on the reference `duration` timebase. These checks are internal
+steps of normalization, not a separate pipeline stage. The current strict
+profile uses zero collar and zero boundary exclusion.
 
 `scoring/vad_detection_duration` pools duration counts over rows with
 prediction `speech_segments`:

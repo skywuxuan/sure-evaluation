@@ -1,4 +1,4 @@
-"""Strict JSONL input contract for voice activity detection evaluation."""
+"""Input parsing and contract checks owned by VAD timebase normalization."""
 
 from __future__ import annotations
 
@@ -7,17 +7,6 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-from sure_eval.evaluation.core.types import PipelineNodeResult
-
-NODE_ID = "validation/vad_contract"
-NODE_VERSION = "v1"
-INTERNAL_STAGES = (
-    "jsonl_parse",
-    "key_alignment",
-    "field_contract",
-    "metric_availability",
-)
 
 DETECTION_METRICS = ("f1", "p_fa", "p_miss", "dcf_nist")
 AUC_METRICS = ("auc_roc",)
@@ -58,8 +47,8 @@ class FrameScore:
 
 
 @dataclass(frozen=True)
-class VADValidatedRow:
-    """One reference/prediction pair after contract validation."""
+class VADInputRow:
+    """One aligned VAD reference/prediction pair."""
 
     key: str
     duration: float
@@ -69,52 +58,22 @@ class VADValidatedRow:
     available_metrics: set[str]
     skipped_metrics: dict[str, str]
 
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "key": self.key,
-            "duration": self.duration,
-            "reference_segments": [segment.as_dict() for segment in self.reference_segments],
-            "prediction_segments": (
-                [segment.as_dict() for segment in self.prediction_segments]
-                if self.prediction_segments is not None
-                else None
-            ),
-            "frame_scores": (
-                [frame_score.as_dict() for frame_score in self.frame_scores]
-                if self.frame_scores is not None
-                else None
-            ),
-            "available_metrics": sorted(self.available_metrics),
-            "skipped_metrics": dict(self.skipped_metrics),
-        }
-
 
 @dataclass(frozen=True)
-class VADValidatedBundle:
-    """Validated VAD rows plus input-level summary metadata."""
+class VADInputBundle:
+    """Parsed VAD rows plus input-level summary metadata."""
 
-    rows: list[VADValidatedRow]
+    rows: list[VADInputRow]
     input_summary: dict[str, Any]
 
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "rows": [row.as_dict() for row in self.rows],
-            "input_summary": dict(self.input_summary),
-        }
 
-
-def validate_vad_contract(
+def load_vad_inputs(
     reference_jsonl: str | Path,
     sample_output: str | Path,
     *,
     required_prediction_fields: tuple[str, ...] = (),
-) -> tuple[VADValidatedBundle, PipelineNodeResult]:
-    """Load and validate VAD reference/prediction JSONL files.
-
-    The selected route passes the prediction fields it consumes. Missing fields
-    for the selected route fail fast; missing fields for unrelated metrics are
-    preserved as unavailable in the trace.
-    """
+) -> VADInputBundle:
+    """Parse aligned VAD JSONL files and enforce the documented contract."""
 
     reference_path = Path(reference_jsonl)
     prediction_path = Path(sample_output)
@@ -123,16 +82,15 @@ def validate_vad_contract(
 
     reference_by_key = _rows_by_key(reference_rows, role="reference_jsonl")
     prediction_by_key = _rows_by_key(prediction_rows, role="sample_output")
-    _validate_aligned_keys(reference_by_key, prediction_by_key)
+    _check_aligned_keys(reference_by_key, prediction_by_key)
 
-    rows: list[VADValidatedRow] = []
+    rows: list[VADInputRow] = []
     for reference in reference_rows:
         reference_key = _required_str(reference, "key", role="reference_jsonl")
-        prediction = prediction_by_key[reference_key]
         rows.append(
-            _validate_pair(
+            _parse_pair(
                 reference,
-                prediction,
+                prediction_by_key[reference_key],
                 required_prediction_fields=required_prediction_fields,
             )
         )
@@ -152,33 +110,15 @@ def validate_vad_contract(
         "num_auc_available": sum("auc_roc" in row.available_metrics for row in rows),
         "skipped_metrics": _summarize_skipped_metrics(rows),
     }
-    bundle = VADValidatedBundle(rows=rows, input_summary=input_summary)
-    result = PipelineNodeResult(
-        stage="validation",
-        node_id=NODE_ID,
-        version=NODE_VERSION,
-        details={
-            "input_summary": input_summary,
-            "rows": [
-                {
-                    "key": row.key,
-                    "available_metrics": sorted(row.available_metrics),
-                    "skipped_metrics": dict(row.skipped_metrics),
-                }
-                for row in rows
-            ],
-        },
-        internal_stages=INTERNAL_STAGES,
-    )
-    return bundle, result
+    return VADInputBundle(rows=rows, input_summary=input_summary)
 
 
-def _validate_pair(
+def _parse_pair(
     reference: dict[str, Any],
     prediction: dict[str, Any],
     *,
     required_prediction_fields: tuple[str, ...],
-) -> VADValidatedRow:
+) -> VADInputRow:
     _reject_unknown_fields(reference, REFERENCE_FIELDS, role="reference_jsonl")
     _reject_score_aliases(prediction)
     _reject_unknown_fields(prediction, PREDICTION_FIELDS, role="sample_output")
@@ -219,7 +159,10 @@ def _validate_pair(
             role=f"sample_output[{key}].frame_scores",
             duration=duration,
         )
-        _reject_overlapping_frame_scores(frame_scores, role=f"sample_output[{key}].frame_scores")
+        _reject_overlapping_frame_scores(
+            frame_scores,
+            role=f"sample_output[{key}].frame_scores",
+        )
 
     available_metrics: set[str] = set()
     skipped_metrics: dict[str, str] = {}
@@ -234,7 +177,7 @@ def _validate_pair(
     else:
         available_metrics.add("auc_roc")
 
-    return VADValidatedRow(
+    return VADInputRow(
         key=key,
         duration=duration,
         reference_segments=reference_segments,
@@ -273,7 +216,7 @@ def _rows_by_key(rows: list[dict[str, Any]], *, role: str) -> dict[str, dict[str
     return by_key
 
 
-def _validate_aligned_keys(
+def _check_aligned_keys(
     reference_by_key: dict[str, dict[str, Any]],
     prediction_by_key: dict[str, dict[str, Any]],
 ) -> None:
@@ -317,7 +260,7 @@ def _parse_segments(value: Any, *, role: str, duration: float) -> list[Segment]:
             start=_required_finite_float(item, "start", role=f"{role}[{index}]"),
             end=_required_finite_float(item, "end", role=f"{role}[{index}]"),
         )
-        _validate_interval(segment.start, segment.end, role=f"{role}[{index}]", duration=duration)
+        _check_interval(segment.start, segment.end, role=f"{role}[{index}]", duration=duration)
         segments.append(segment)
     _reject_overlapping_segments(segments, role=role)
     return segments
@@ -336,7 +279,7 @@ def _parse_frame_scores(value: Any, *, role: str, duration: float) -> list[Frame
             end=_required_finite_float(item, "end", role=f"{role}[{index}]"),
             score=_required_finite_float(item, "score", role=f"{role}[{index}]"),
         )
-        _validate_interval(
+        _check_interval(
             frame_score.start,
             frame_score.end,
             role=f"{role}[{index}]",
@@ -346,7 +289,7 @@ def _parse_frame_scores(value: Any, *, role: str, duration: float) -> list[Frame
     return frame_scores
 
 
-def _validate_interval(start: float, end: float, *, role: str, duration: float) -> None:
+def _check_interval(start: float, end: float, *, role: str, duration: float) -> None:
     if start < 0.0 or end > duration:
         raise ValueError(f"{role} must be within [0, duration]")
     if end <= start:
@@ -392,7 +335,7 @@ def _required_finite_float(row: dict[str, Any], field: str, *, role: str) -> flo
     return result
 
 
-def _summarize_skipped_metrics(rows: list[VADValidatedRow]) -> dict[str, int]:
+def _summarize_skipped_metrics(rows: list[VADInputRow]) -> dict[str, int]:
     counts = {metric: 0 for metric in ALL_PRIMARY_METRICS}
     for row in rows:
         for metric in row.skipped_metrics:
